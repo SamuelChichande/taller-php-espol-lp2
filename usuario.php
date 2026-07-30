@@ -17,6 +17,21 @@ function validar($cedula) {
     }
     return false;
 }
+
+function obtenerNombreUsuario($cedula) {
+    if (!file_exists("usuarios.csv")) return false;
+    $lineas = file("usuarios.csv");
+    foreach ($lineas as $linea) {
+        $campos = explode(",", $linea);
+        if (count($campos) < 2) {
+            continue;
+        }
+        if ($campos[0] == $cedula) {
+            return trim($campos[1]);
+        }
+    }
+    return false;
+}
  
 function autenticar($cedula, $contrasena) {
     if (!file_exists("usuarios.csv")) return false;

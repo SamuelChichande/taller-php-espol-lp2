@@ -1,41 +1,68 @@
 <?php
 session_start();
+require_once 'tarea.php';
 
 if (empty($_SESSION['cedula'])) {
     header('Location: ingreso.php');
     exit;
 }
 
-if (!isset($_SESSION['tasks'])) {
-    $_SESSION['tasks'] = [];
+function convertirATareasSesion($tareasArchivo) {
+    $resultado = [];
+
+    foreach ($tareasArchivo['pendientes'] as $tarea) {
+        $resultado[] = [
+            'id' => $tarea['id'],
+            'text' => $tarea['text'],
+            'completed' => false,
+        ];
+    }
+
+    foreach ($tareasArchivo['completadas'] as $tarea) {
+        $resultado[] = [
+            'id' => $tarea['id'],
+            'text' => $tarea['text'],
+            'completed' => true,
+        ];
+    }
+
+    return $resultado;
 }
+
+function cargarTareasDesdeArchivo() {
+    $usuario = $_SESSION['usuario'] ?? $_SESSION['cedula'] ?? 'usuario';
+    $_SESSION['tasks'] = convertirATareasSesion(listarTareas($usuario));
+    return $_SESSION['tasks'];
+}
+
+$usuario = $_SESSION['usuario'] ?? $_SESSION['cedula'] ?? 'usuario';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'add') {
         $taskText = trim($_POST['task'] ?? '');
         if ($taskText !== '') {
-            $_SESSION['tasks'][] = [
-                'text' => htmlspecialchars($taskText, ENT_QUOTES, 'UTF-8'),
-                'completed' => false,
-            ];
+            guardarTarea($usuario, $taskText);
         }
     }
 
     if (isset($_POST['action']) && isset($_POST['task_id'])) {
         $taskId = (int) $_POST['task_id'];
-        if (array_key_exists($taskId, $_SESSION['tasks'])) {
+        if ($taskId > 0) {
             if ($_POST['action'] === 'complete') {
-                $_SESSION['tasks'][$taskId]['completed'] = true;
+                completarTarea($usuario, $taskId);
             }
             if ($_POST['action'] === 'delete') {
-                array_splice($_SESSION['tasks'], $taskId, 1);
+                eliminarTarea($usuario, $taskId);
             }
         }
     }
 
+    cargarTareasDesdeArchivo();
     header('Location: tareas.php');
     exit;
 }
+
+$_SESSION['tasks'] = cargarTareasDesdeArchivo();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -48,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <header>
         <h1>Mis Tareas</h1>
-        <p>Usuario: <?= htmlspecialchars($_SESSION['usuario']) ?></p>
+        <?php $nombreUsuario = $_SESSION['usuario'] ?? $_SESSION['cedula'] ?? 'Usuario'; ?>
+        <p>Usuario: <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?></p>
     </header>
 
     <section>
@@ -64,19 +92,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2>Pendientes</h2>
         <?php $hasPending = false; ?>
         <ul>
-            <?php foreach ($_SESSION['tasks'] as $id => $task): ?>
+            <?php foreach ($_SESSION['tasks'] as $task): ?>
                 <?php if (!$task['completed']): ?>
                     <?php $hasPending = true; ?>
                     <li>
-                        <?= $task['text'] ?>
+                        <?= htmlspecialchars($task['text'], ENT_QUOTES, 'UTF-8') ?>
                         <form method="POST" action="tareas.php" style="display:inline;">
                             <input type="hidden" name="action" value="complete">
-                            <input type="hidden" name="task_id" value="<?= $id ?>">
+                            <input type="hidden" name="task_id" value="<?= (int) ($task['id'] ?? 0) ?>">
                             <button type="submit">Completar</button>
                         </form>
                         <form method="POST" action="tareas.php" style="display:inline;">
                             <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="task_id" value="<?= $id ?>">
+                            <input type="hidden" name="task_id" value="<?= (int) ($task['id'] ?? 0) ?>">
                             <button type="submit">Eliminar</button>
                         </form>
                     </li>
@@ -92,14 +120,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2>Completadas</h2>
         <?php $hasCompleted = false; ?>
         <ul>
-            <?php foreach ($_SESSION['tasks'] as $id => $task): ?>
+            <?php foreach ($_SESSION['tasks'] as $task): ?>
                 <?php if ($task['completed']): ?>
                     <?php $hasCompleted = true; ?>
                     <li>
-                        <?= $task['text'] ?>
+                        <?= htmlspecialchars($task['text'], ENT_QUOTES, 'UTF-8') ?>
                         <form method="POST" action="tareas.php" style="display:inline;">
                             <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="task_id" value="<?= $id ?>">
+                            <input type="hidden" name="task_id" value="<?= (int) ($task['id'] ?? 0) ?>">
                             <button type="submit">Eliminar</button>
                         </form>
                     </li>
